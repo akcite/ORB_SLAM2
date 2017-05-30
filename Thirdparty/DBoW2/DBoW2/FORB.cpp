@@ -136,6 +136,28 @@ void FORB::fromString(FORB::TDescriptor &a, const std::string &s)
 
 // --------------------------------------------------------------------------
 
+void FORB::fromDescriptor(const TDescriptor &a, uchar *d)
+{
+  const unsigned char *p = a.ptr<unsigned char>();
+
+  for(int i = 0; i < a.cols; ++i, ++p)
+    d[i] = (uchar)*p;
+}
+
+// --------------------------------------------------------------------------
+
+void FORB::toDescriptor(const uchar *d, TDescriptor *a)
+{
+  a->create(1, FORB::L, CV_8U);
+  uchar *p = a->ptr<uchar>();
+
+  for(int i = 0; i < FORB::L; ++i, ++p) {
+    *p = d[i];
+  }
+}
+
+// --------------------------------------------------------------------------
+
 void FORB::toMat32F(const std::vector<TDescriptor> &descriptors, 
   cv::Mat &mat)
 {

@@ -239,12 +239,14 @@ public:
    * @param filename
    */
   bool loadFromTextFile(const std::string &filename);
+  bool loadFromBinaryFile(const std::string &filename);
 
   /**
    * Saves the vocabulary into a text file
    * @param filename
    */
   void saveToTextFile(const std::string &filename) const;  
+  void saveToBinaryFile(const std::string &filename) const;
 
   /**
    * Saves the vocabulary into a file
@@ -1446,6 +1448,107 @@ void TemplatedVocabulary<TDescriptor,F>::saveToTextFile(const std::string &filen
     }
 
     f.close();
+}
+
+// --------------------------------------------------------------------------
+
+template<class TDescriptor, class F>
+bool TemplatedVocabulary<TDescriptor,F>
+::loadFromBinaryFile(const std::string &filename) {
+  FILE *fp = fopen(filename.c_str(), "rb");
+  if(fp == false)
+   return false;
+
+  m_words.clear();
+  m_nodes.clear();
+
+  int n1, n2, node_size;
+  if (!fread(&m_k,       sizeof(int), 1, fp)) return false;
+  if (!fread(&m_L,       sizeof(int), 1, fp)) return false;
+  if (!fread(&n1,        sizeof(int), 1, fp)) return false;
+  if (!fread(&n2,        sizeof(int), 1, fp)) return false;
+  if (!fread(&node_size, sizeof(int), 1, fp)) return false;
+
+  if (m_k<0 || m_k>20 || m_L<1 || m_L>10 || n1<0 || n1>5 || n2<0 || n2>3) {
+    std::cerr << "Vocabulary loading failure: This is not a correct text file!" << endl;
+    return false;
+  }
+
+  m_scoring = (ScoringType)n1;
+  m_weighting = (WeightingType)n2;
+  createScoringObject();
+
+  struct VOC_DATA {
+    int pid;
+    int isleaf;
+    uchar desc[32];
+    double weight;
+  } vd;
+
+  m_nodes.resize(1);
+  m_nodes[0].id = 0;
+  for (int i = 0; i < node_size; ++i) {
+    if (!fread(&vd, sizeof(struct VOC_DATA), 1, fp)) return false;
+
+    int nid = m_nodes.size();
+    m_nodes.resize(m_nodes.size() + 1);
+    m_nodes[nid].id = nid;
+
+    int pid = vd.pid;
+    m_nodes[nid].parent = pid;
+    m_nodes[pid].children.push_back(nid);
+
+    F::toDescriptor(vd.desc, &m_nodes[nid].descriptor);
+
+    m_nodes[nid].weight = vd.weight;
+
+    int nIsLeaf = vd.isleaf;
+    if(nIsLeaf>0) {
+      int wid = m_words.size();
+      m_words.resize(wid+1);
+
+      m_nodes[nid].word_id = wid;
+      m_words[wid] = &m_nodes[nid];
+    } else {
+      m_nodes[nid].children.reserve(m_k);
+    }
+  }
+
+  fclose(fp);
+  return true;
+}
+
+// --------------------------------------------------------------------------
+
+template<class TDescriptor, class F>
+void TemplatedVocabulary<TDescriptor,F>
+::saveToBinaryFile(const std::string &filename) const
+{
+  int node_size = (int) m_nodes.size() - 1;  // exclude root
+  int n1 = (int) m_scoring;
+  int n2 = (int) m_weighting;
+
+  FILE *fp = fopen(filename.c_str(), "wb");
+
+  fwrite(&m_k,       sizeof(int), 1, fp);
+  fwrite(&m_L,       sizeof(int), 1, fp);
+  fwrite(&n1,        sizeof(int), 1, fp);
+  fwrite(&n2,        sizeof(int), 1, fp);
+  fwrite(&node_size, sizeof(int), 1, fp);
+
+  for (size_t i = 1; i < m_nodes.size(); ++i) {
+    fwrite(&m_nodes[i].parent, sizeof(int), 1, fp);
+    int isleaf = m_nodes[i].isLeaf() ? 1 : 0;
+    fwrite(&isleaf, sizeof(int), 1, fp);
+
+    uchar data[32];
+    F::fromDescriptor(m_nodes[i].descriptor, data);
+    fwrite(data, sizeof(uchar), 32, fp);
+
+    fwrite(&m_nodes[i].weight, sizeof(double), 1, fp);
+  }
+
+  fclose(fp);
 }
 
 // --------------------------------------------------------------------------

@@ -60,6 +60,9 @@ public:
    */
   static void fromString(TDescriptor &a, const std::string &s);
 
+  static void fromDescriptor(const TDescriptor &a, uchar *d);
+  static void toDescriptor(const uchar *d, TDescriptor *a);
+
   /**
    * Returns a mat with the descriptors in float format
    * @param descriptors

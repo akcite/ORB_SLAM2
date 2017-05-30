@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
 project(ORB_SLAM2)
 
+include_directories(/home/alan/orb/include)
+link_directories(/home/alan/orb/libs)
+
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
